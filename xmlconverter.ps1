@@ -30,7 +30,7 @@
     }
 )
 
-$SaveTo = "C:\Users\bonicoli\OneDrive för företag\Scripts\DocGen\xml"
+#$SaveTo = "C:\Users\bonicoli\OneDrive för företag\Scripts\DocGen\xml"
 [XML]$XmlDoc = Get-Content $XmlFile
 
 [HashTable]$list = @{}

@@ -188,9 +188,9 @@ $scriptName = $argv0.name               # Ex: PSService.ps1
 $scriptFullName = $argv0.fullname       # Ex: C:\Temp\PSService.ps1
 
 # Global settings
-$serviceName = $script                  # A one-word name used for net start commands
-$serviceDisplayName = "A Sample PowerShell Service"
-$ServiceDescription = "Shows how a service can be written in PowerShell"
+$serviceName = "XmlConverterService"                  # A one-word name used for net start commands
+$serviceDisplayName = "A service to transform XML-files"
+$ServiceDescription = "Transforms xML files according to input from control pipe"
 $pipeName = "Service_$serviceName"      # Named pipe name. Used for sending messages to the service task
 $installDir = "${ENV:ProgramFiles}\$serviceName" # Where to install the service files
 #$installDir = "${ENV:windir}\System32"  # Where to install the service files
@@ -1020,9 +1020,6 @@ if ($Service) {                 # Run the service
         }
         "TimerTick" { # Example. Periodic event generated for this example
           Log "$scriptName -Service # Timer ticked"
-          foreach ($profile in $ConfigData.Profiles) {
-            Log "$scriptName -Service # $($profile.Name), $($profile.In), $($profile.Out), $($profile.Profile)"
-          }
         }
         default { # Should not happen
           Log "$scriptName -Service # Unexpected event from ${source}: $Message"

@@ -33,5 +33,30 @@
   }
 }
 
-$pipeName = ""
-$message = ""
+$pipeName = "Service_XmlConverterService"
+$message = @{
+        Module = 'XmlConverter'
+        In = 'C:\Program Files\XmlConverterService\In\74.xml'
+        Out = 'C:\Program Files\XmlConverterService\Out'
+        Profile = 'Flatten'
+    }
+
+$test = ""
+
+
+foreach ($pair in $message.GetEnumerator()) {
+    $value = $pair.Value -Replace '\\', '\\'
+    $test += "$($pair.Name)=$value<\n>"
+}
+
+C:\Users\bonicoli\XmlGenerator\PSService.ps1 -Remove
+sleep 5
+C:\Users\bonicoli\XmlGenerator\PSService.ps1 -Setup
+sleep 5
+C:\Users\bonicoli\XmlGenerator\PSService.ps1 -Start
+sleep 2
+
+Send-PipeMessage -PipeName $pipeName -Message $test
+
+sleep 2
+type 'C:\Program Files\XmlConverterService\Logs\XmlConverterService.log'

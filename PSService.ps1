@@ -189,7 +189,7 @@ $scriptFullName = $argv0.fullname       # Ex: C:\Temp\PSService.ps1
 
 # Global settings
 $serviceName = "XmlConverterService"                  # A one-word name used for net start commands
-$serviceDisplayName = "A service to transform XML-files"
+$serviceDisplayName = "XML Converter"
 $ServiceDescription = "Transforms xML files according to input from control pipe"
 $pipeName = "Service_$serviceName"      # Named pipe name. Used for sending messages to the service task
 $installDir = "${ENV:ProgramFiles}\$serviceName" # Where to install the service files
@@ -508,10 +508,23 @@ Function Receive-PipeMessage () {
   $PipeOpt  = [System.IO.Pipes.PipeOptions]::Asynchronous
   $PipeMode = [System.IO.Pipes.PipeTransmissionMode]::Message
 
+  $locales = @{
+    "sv-SE" = @{
+        SystemUser = "NT AUTHORITY\System";
+        AdminUsers = "BUILTIN\Administratörer";
+       }
+   }
+
+   $culture = (Get-Host | Select -ExpandProperty CurrentCulture).Name
+   Log $locales.Get_Item($culture).SystemUser
+   Log $locales.Get_Item($culture).AdminUsers
+
   try {
     $PipeSecurity = new-object System.IO.Pipes.PipeSecurity
-    $AccessRule = New-Object System.IO.Pipes.PipeAccessRule( "Users", "FullControl", "Allow" )
-    $PipeSecurity.AddAccessRule($AccessRule)
+    $ARSystem = New-Object System.IO.Pipes.PipeAccessRule( $locales.Get_Item($culture).SystemUser, "FullControl", "Allow" )
+    $ARAdmins = New-Object System.IO.Pipes.PipeAccessRule( $locales.Get_Item($culture).AdminUsers, "FullControl", "Allow" )
+    $PipeSecurity.AddAccessRule($ARSystem)
+    $PipeSecurity.AddAccessRule($ARAdmins)
 
     $pipe = $null       # Named pipe stream
     $pipe = New-Object system.IO.Pipes.NamedPipeServerStream($PipeName, $PipeDir, 1, $PipeMode, $PipeOpt, 32768, 32768, $PipeSecurity)
@@ -1005,7 +1018,15 @@ if ($Service) {                 # Run the service
           switch ($state) {
             "Completed" {
               $message = Receive-PipeHandlerThread $pipeThread
-              Log "$scriptName -Service # Received control message: $Message"
+              Log "$scriptName -Service # Received control message containing: $Message"
+              try{
+                $config = ConvertFrom-StringData ($Message -replace '<\\n>', [Environment]::NewLine)
+                $ScriptPath = "$installDir\Modules\xmlconverter.ps1"
+                Invoke-Expression "& `"$ScriptPath`" -XmlFile `"$($config.In)`" -SaveTo `"$($config.Out)`""
+              }
+              catch {
+                Log "Error creating config: $_"
+              }
               if ($message -ne "exit") { # Start another thread waiting for control messages
                 $pipeThread = Start-PipeHandlerThread $pipeName -Event "ControlMessage"
               }

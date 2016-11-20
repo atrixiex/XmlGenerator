@@ -1,4 +1,23 @@
-﻿param (
+﻿<#What to do:
+1. Test file exists
+2. Rename file to <Status>-Hash
+3. Perform functions:
+   - Flatten: Flattens a XML-tree to a more basic form
+   - DocGen: Performs flatten -> transform -> And then converts that to DocGen-formatted XML-files
+   - Templating: Takes XML-information from input file and creates a new XML-file in a new format using that information
+   - Transformation: Flattens a file and then transforms lists, tables etc.
+#>
+<# Functions:
+Get filehash
+Read-XML
+Save-XML
+Flatten
+Transofmr
+DocGen
+Template
+#>
+
+param (
     [parameter(Position=0,Mandatory=$true)]
     [ValidateScript({Test-Path $_ -PathType ‘Leaf’})] 
     [string]

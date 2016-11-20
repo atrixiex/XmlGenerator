@@ -191,6 +191,7 @@ $scriptFullName = $argv0.fullname       # Ex: C:\Temp\PSService.ps1
 $serviceName = "XmlConverterService"                  # A one-word name used for net start commands
 $serviceDisplayName = "XML Converter"
 $ServiceDescription = "Transforms xML files according to input from control pipe"
+$ServiceConfig = "test"
 $pipeName = "Service_$serviceName"      # Named pipe name. Used for sending messages to the service task
 $installDir = "${ENV:ProgramFiles}\$serviceName" # Where to install the service files
 #$installDir = "${ENV:windir}\System32"  # Where to install the service files
@@ -513,9 +514,13 @@ Function Receive-PipeMessage () {
         SystemUser = "NT AUTHORITY\System";
         AdminUsers = "BUILTIN\Administratörer";
        }
+    "en-US" = @{
+        SystemUser = "NT AUTHORITY\System";
+        AdminUsers = "BUILTIN\Administrators";
+       }
    }
 
-   $culture = (Get-Host | Select -ExpandProperty CurrentCulture).Name
+   $culture = (Get-UICulture).Name
    Log $locales.Get_Item($culture).SystemUser
    Log $locales.Get_Item($culture).AdminUsers
 
@@ -772,6 +777,33 @@ $source = @"
 
 #-----------------------------------------------------------------------------#
 #                                                                             #
+#   Function        Get-Configuration                                         #
+#                                                                             #
+#   Description     Read the configuration file in the installdirectory       #
+#                   Will stop the service if no file is found                 #
+#                                                                             #
+#   Arguments       See the Param() block                                     #
+#                                                                             #
+#   Notes           Private function                                          #
+#                                                                             #
+#   History                                                                   #
+#    2016-11-20 Atrixiex Created this function                                #
+#                                                                             #
+#-----------------------------------------------------------------------------#
+
+Function Get-Configuration () {
+  if(!(Test-Path "$installDir\config.psd1")) {
+    Log "$scriptName -ReadConfig: No config-file found at `"$installDir\config.psd1`", stopping service."
+    & $scriptFullName -Stop
+  }
+  else {
+    Log "$scriptName -ReadConfig: Reading config-file found at `"$installDir\config.psd1`"."
+    Import-LocalizedData -BaseDirectory $installDir -FileName "config.psd1"
+  }
+}
+
+#-----------------------------------------------------------------------------#
+#                                                                             #
 #   Function        Main                                                      #
 #                                                                             #
 #   Description     Execute the specified actions                             #
@@ -812,12 +844,8 @@ if ($Start) {                   # Start the service
     Write-EventLog -LogName $logName -Source $serviceName -EventId 1002 -EntryType Information -Message "$scriptName -Start: Starting service $serviceName"
     Start-Service $serviceName # Ask Service Control Manager to start it
   }
-  if(!(Test-Path "$installDir\config.psd1")) {
-    & $scriptFullName -Stop
-  }
-  else {
-    Import-LocalizedData -BaseDirectory $installDir -FileName config.psd1 -BindingVariable ServiceConfig
-  }
+  # Read configuration-file
+  $ServiceConfig = Get-Configuration
   return
 }
 
@@ -996,7 +1024,7 @@ if ($Service) {                 # Run the service
     ######### TO DO: Implement your own service code here. ##########
     ###### Example that wakes up and logs a line every 10 sec: ######
     # Start a periodic timer
-    $timerName = "Sample service timer"
+    $timerName = "$scriptName timer"
     $period = 10 # seconds
     $timer = new-object System.Timers.Timer
     $timer.Interval = ($period * 1000) # Milliseconds
@@ -1019,13 +1047,20 @@ if ($Service) {                 # Run the service
             "Completed" {
               $message = Receive-PipeHandlerThread $pipeThread
               Log "$scriptName -Service # Received control message containing: $Message"
-              try{
-                $config = ConvertFrom-StringData ($Message -replace '<\\n>', [Environment]::NewLine)
-                $ScriptPath = "$installDir\Modules\xmlconverter.ps1"
-                Invoke-Expression "& `"$ScriptPath`" -XmlFile `"$($config.In)`" -SaveTo `"$($config.Out)`""
-              }
-              catch {
-                Log "Error creating config: $_"
+              switch ($message) {
+                "ReadConfig" {
+                  try{
+                    $ServiceConfig = Get-Configuration
+                    Log "$scriptName -Test: config-interval is:`"$($ServiceConfig.Interval)`""
+                    $timer.Interval = ($ServiceConfig.Interval * 1000)
+                  }
+                  catch {
+                    Log "$scriptName -Control: Error handling control message: $_"
+                  }
+                }
+                default {
+                  Log "$scriptName -Control: Error! Unknown control message!"
+                }
               }
               if ($message -ne "exit") { # Start another thread waiting for control messages
                 $pipeThread = Start-PipeHandlerThread $pipeName -Event "ControlMessage"

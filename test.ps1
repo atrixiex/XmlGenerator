@@ -20,7 +20,7 @@
     $sw.AutoFlush = $true
     $sw.WriteLine($Message)
   } catch {
-    Log "Error sending pipe $pipeName message: $_"
+    Write-Host "Error sending pipe $pipeName message: $_"
   } finally {
     if ($sw) {
       $sw.Dispose() # Release resources
@@ -48,15 +48,18 @@ foreach ($pair in $message.GetEnumerator()) {
     $value = $pair.Value -Replace '\\', '\\'
     $test += "$($pair.Name)=$value<\n>"
 }
+$dir = "C:\Users\Bobo\Documents\Scripts\XmlGenerator\PSService.ps1"
 
-C:\Users\bonicoli\XmlGenerator\PSService.ps1 -Remove
+& $dir -Remove
 sleep 5
-C:\Users\bonicoli\XmlGenerator\PSService.ps1 -Setup
+& $dir -Setup
 sleep 5
-C:\Users\bonicoli\XmlGenerator\PSService.ps1 -Start
+& $dir -Start
 sleep 2
 
-Send-PipeMessage -PipeName $pipeName -Message $test
+Send-PipeMessage -PipeName $pipeName -Message "Meow"
 
 sleep 2
 type 'C:\Program Files\XmlConverterService\Logs\XmlConverterService.log'
+
+& $dir -Stop
